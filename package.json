@@ -5,7 +5,7 @@
     "Justin Carvalho (original project)"
   ],
   "description": "A modern word-based Pebble watchface with weather, date, and battery status.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "keywords": [
     "pebble-watchface"
   ],
@@ -46,7 +46,9 @@
       "KEY_HIGH",
       "KEY_CONDITIONS",
       "KEY_THEME",
-      "KEY_REQUEST_WEATHER"
+      "KEY_REQUEST_WEATHER",
+      "KEY_DISABLE_ANIMATION",
+      "KEY_REQUEST_SETTINGS"
     ],
     "resources": {
       "media": [

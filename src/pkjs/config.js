@@ -20,6 +20,13 @@ module.exports = [
         "label": "Black text on white",
         "description": "Off uses white text on black.",
         "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "messageKey": "KEY_DISABLE_ANIMATION",
+        "label": "Disable time animation",
+        "description": "Makes minute changes immediate, avoiding animation work to modestly reduce battery use.",
+        "defaultValue": false
       }
     ]
   },
@@ -32,7 +39,7 @@ module.exports = [
       },
       {
         "type": "text",
-        "defaultValue": "Weather uses your phone's location and Open-Meteo. No account or API key is required. The last successful forecast is kept for up to six hours, with staged retries after temporary failures."
+        "defaultValue": "Weather uses your phone's location and Open-Meteo. It prefers a fresh precise location and falls back to an approximate one when necessary. No account or API key is required. Cached forecasts are location-aware and kept for up to six hours, with staged retries after temporary failures."
       },
       {
         "type": "text",

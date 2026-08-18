@@ -34,6 +34,9 @@ high-contrast themes:
 
 The selected theme is saved on the watch.
 
+Time-change animation is enabled by default. It can also be disabled in the
+settings so minute changes update immediately with slightly less battery work.
+
 | White on black | Black on white |
 | --- | --- |
 | ![Emery dark theme](screenshots/emery-dark.png) | ![Emery light theme](screenshots/emery-light.png) |
@@ -42,9 +45,11 @@ The selected theme is saved on the watch.
 
 Weather uses the phone's location through PebbleKit JS and the HTTPS
 [Open-Meteo forecast API](https://open-meteo.com/). No API key is required.
-Weather data is refreshed when the watchface starts and once per hour. The last
-successful result is retained for up to six hours, and temporary failures retry
-after 1, 5, and 15 minutes.
+The app prefers a fresh high-accuracy phone location and falls back to a recent
+low-accuracy fix when necessary. Weather data is refreshed when the watchface
+starts and once per hour. The last successful result is retained for up to six
+hours only while it remains relevant to the current location, and temporary
+failures retry after 1, 5, and 15 minutes.
 
 ## Build
 

@@ -7,6 +7,7 @@
 #define BUFFER_SIZE 48
 #define WEATHER_BUFFER_SIZE 64
 #define PERSIST_KEY_THEME 1
+#define PERSIST_KEY_DISABLE_ANIMATION 2
 
 typedef enum {
   THEME_DARK = 0,
@@ -31,6 +32,7 @@ static TextLayer *s_date_layer;
 static TextLayer *s_battery_layer;
 
 static Theme s_theme = THEME_DARK;
+static bool s_animation_disabled;
 static GColor s_foreground;
 static int16_t s_screen_width;
 static bool s_large_layout;
@@ -82,14 +84,16 @@ static void apply_theme(void) {
   set_layer_colors(s_battery_layer);
 }
 
-static void load_theme(void) {
+static void load_settings(void) {
   if (!persist_exists(PERSIST_KEY_THEME)) {
     s_theme = THEME_DARK;
-    return;
+  } else {
+    int stored_theme = persist_read_int(PERSIST_KEY_THEME);
+    s_theme = stored_theme == THEME_LIGHT ? THEME_LIGHT : THEME_DARK;
   }
 
-  int stored_theme = persist_read_int(PERSIST_KEY_THEME);
-  s_theme = stored_theme == THEME_LIGHT ? THEME_LIGHT : THEME_DARK;
+  s_animation_disabled = persist_exists(PERSIST_KEY_DISABLE_ANIMATION) &&
+      persist_read_int(PERSIST_KEY_DISABLE_ANIMATION);
 }
 
 static void configure_text_layer(TextLayer *layer, GFont font,
@@ -127,6 +131,15 @@ static void copy_line_text(char destination[BUFFER_SIZE], const char *source) {
 static void set_initial_line(AnimatedLine *line, const char *text) {
   copy_line_text(line->text[0], text);
   text_layer_set_text(line->layers[0], line->text[0]);
+}
+
+static void set_line_immediately(AnimatedLine *line, const char *next_text) {
+  if (strcmp(line->text[line->active], next_text) == 0) {
+    return;
+  }
+
+  copy_line_text(line->text[line->active], next_text);
+  text_layer_set_text(line->layers[line->active], line->text[line->active]);
 }
 
 static void update_line(AnimatedLine *line, const char *next_text) {
@@ -225,8 +238,10 @@ static void display_time(const struct tm *time_parts, bool animated) {
   }
 
   for (size_t i = 0; i < ARRAY_LENGTH(s_lines); ++i) {
-    if (animated) {
+    if (animated && !s_animation_disabled) {
       update_line(&s_lines[i], words[i]);
+    } else if (animated) {
+      set_line_immediately(&s_lines[i], words[i]);
     } else {
       set_initial_line(&s_lines[i], words[i]);
     }
@@ -244,29 +259,39 @@ static void update_weather_text(void) {
   } else if (s_conditions[0] == 'X') {
     s_weather_text[0] = '\0';
   } else {
-    snprintf(s_weather_text, sizeof(s_weather_text), "%s  %dc  %d-%d",
+    snprintf(s_weather_text, sizeof(s_weather_text), "%s  %dc  %d/%d",
              s_conditions, s_temperature, s_low, s_high);
   }
   text_layer_set_text(s_weather_layer, s_weather_text);
 }
 
-static void request_weather(void) {
+static void send_phone_update(bool request_weather) {
   DictionaryIterator *iterator = NULL;
   AppMessageResult result = app_message_outbox_begin(&iterator);
   if (result != APP_MSG_OK || !iterator) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Unable to start weather request: %d", result);
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Unable to start phone update: %d", result);
     return;
   }
 
-  dict_write_uint8(iterator, MESSAGE_KEY_KEY_REQUEST_WEATHER, 1);
+  if (request_weather) {
+    dict_write_uint8(iterator, MESSAGE_KEY_KEY_REQUEST_WEATHER, 1);
+  }
+  dict_write_uint8(iterator, MESSAGE_KEY_KEY_THEME, s_theme == THEME_LIGHT);
+  dict_write_uint8(iterator, MESSAGE_KEY_KEY_DISABLE_ANIMATION,
+                   s_animation_disabled);
   result = app_message_outbox_send();
   if (result != APP_MSG_OK) {
-    APP_LOG(APP_LOG_LEVEL_WARNING, "Unable to send weather request: %d", result);
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Unable to send phone update: %d", result);
   }
+}
+
+static void request_weather(void) {
+  send_phone_update(true);
 }
 
 static void inbox_received(DictionaryIterator *iterator, void *context) {
   bool weather_changed = false;
+  bool settings_requested = false;
   Tuple *tuple = dict_read_first(iterator);
 
   while (tuple) {
@@ -289,12 +314,24 @@ static void inbox_received(DictionaryIterator *iterator, void *context) {
         persist_write_int(PERSIST_KEY_THEME, s_theme);
         apply_theme();
       }
+    } else if (tuple->key == MESSAGE_KEY_KEY_DISABLE_ANIMATION) {
+      bool disabled = tuple->value->int32;
+      if (disabled != s_animation_disabled) {
+        s_animation_disabled = disabled;
+        persist_write_int(PERSIST_KEY_DISABLE_ANIMATION,
+                          s_animation_disabled);
+      }
+    } else if (tuple->key == MESSAGE_KEY_KEY_REQUEST_SETTINGS) {
+      settings_requested = true;
     }
     tuple = dict_read_next(iterator);
   }
 
   if (weather_changed) {
     update_weather_text();
+  }
+  if (settings_requested) {
+    send_phone_update(false);
   }
 }
 
@@ -323,7 +360,7 @@ static void window_load(Window *window) {
   s_screen_width = bounds.size.w;
   s_large_layout = bounds.size.h >= 200;
 
-  int16_t margin = s_large_layout ? 8 : 0;
+  int16_t margin = s_large_layout ? 2 : 0;
   // Bitham's visible glyphs occupy much less height than its nominal line
   // box. Keep the Emery rows close together, then center the resulting block
   // in the space above the footer.
@@ -410,7 +447,7 @@ static void window_unload(Window *window) {
 }
 
 static void init(void) {
-  load_theme();
+  load_settings();
 
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
