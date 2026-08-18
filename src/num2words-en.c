@@ -1,137 +1,124 @@
 #include "num2words-en.h"
-#include "string.h"
 
-static const char* const ONES[] = {
-    "o'clock",
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine"
+#include <stdio.h>
+#include <string.h>
+
+static const char *const ONES[] = {
+  "o'clock",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine"
 };
 
-static const char* const TEENS[] ={
-    "",
-    "eleven",
-    "twelve",
-    "thirteen",
-    "fourteen",
-    "fifteen",
-    "sixteen",
-    "seventeen",
-    "eightteen",
-    "nineteen"
+static const char *const TEENS[] = {
+  "",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen"
 };
 
-static const char* const TENS[] = {
-    #if INCLUDE_OH
-    "oh",
-    #else
-    "",
-    #endif
-    "ten",
-    "twenty",
-    "thirty",
-    "forty",
-    "fifty",
-    "sixty",
-    "seventy",
-    "eighty",
-    "ninety"
+static const char *const TENS[] = {
+  "",
+  "ten",
+  "twenty",
+  "thirty",
+  "forty",
+  "fifty"
 };
 
-static size_t append_number(char* words, int num, short isOh) {
-    int tens_val = num / 10 % 10;
-    int ones_val = num % 10;
+static void copy_word(char *destination, size_t destination_size,
+                      const char *source) {
+  if (destination_size == 0) {
+    return;
+  }
 
-    size_t len = 0;
-
-    if (tens_val == 1 && num != 10) {
-        strcat(words, TEENS[ones_val]);
-        return strlen(TEENS[ones_val]);
-    }
-    if(!INCLUDE_OH || ((num != 0) && ((tens_val != 0) || isOh))) {
-        strcat(words, TENS[tens_val]);
-        len += strlen(TENS[tens_val]);
-        if (ones_val > 0) {
-            strcat(words, " ");
-            len += 1;
-        }
-    }
-
-    if (ones_val > 0 || num == 0) {
-        strcat(words, ONES[ones_val]);
-        len += strlen(ONES[ones_val]);
-    }
-    return len;
+  size_t length = strlen(source);
+  if (length >= destination_size) {
+    length = destination_size - 1;
+  }
+  memcpy(destination, source, length);
+  destination[length] = '\0';
 }
 
-static size_t append_string(char* buffer, const size_t length, const char* str) {
-    strncat(buffer, str, length);
+static void split_long_teen(const char *word, char *second, char *third,
+                            size_t line_size) {
+  const char *suffix = strstr(word, "teen");
+  if (!suffix) {
+    copy_word(second, line_size, word);
+    return;
+  }
 
-    size_t written = strlen(str);
-    return (length > written) ? written : length;
+  size_t prefix_length = (size_t)(suffix - word);
+  if (line_size > 0) {
+    if (prefix_length >= line_size) {
+      prefix_length = line_size - 1;
+    }
+    memcpy(second, word, prefix_length);
+    second[prefix_length] = '\0';
+  }
+  copy_word(third, line_size, suffix);
 }
 
+void time_to_3words(int hours, int minutes, char *first, char *second,
+                    char *third, size_t line_size) {
+  if (line_size == 0) {
+    return;
+  }
 
-void time_to_words(int hours, int minutes, char* words, size_t length) {
+  first[0] = '\0';
+  second[0] = '\0';
+  third[0] = '\0';
 
-    size_t remaining = length;
-    memset(words, 0, length);
+  int hour = hours % 12;
+  if (hour == 0) {
+    copy_word(first, line_size, TEENS[2]);
+  } else if (hour < 10) {
+    copy_word(first, line_size, ONES[hour]);
+  } else if (hour == 10) {
+    copy_word(first, line_size, TENS[1]);
+  } else {
+    copy_word(first, line_size, TEENS[1]);
+  }
 
-    if (hours == 0 || hours == 12) {
-        remaining -= append_string(words, remaining, TEENS[2]);
+  if (minutes < 0 || minutes > 59) {
+    return;
+  }
+  if (minutes == 0) {
+    copy_word(second, line_size, ONES[0]);
+    return;
+  }
+  if (minutes < 10) {
+    snprintf(second, line_size, "o'%s", ONES[minutes]);
+    return;
+  }
+  if (minutes == 10) {
+    copy_word(second, line_size, TENS[1]);
+    return;
+  }
+  if (minutes < 20) {
+    const char *teen = TEENS[minutes % 10];
+    if (minutes != 13 && strlen(teen) > 7) {
+      split_long_teen(teen, second, third, line_size);
     } else {
-        remaining -= append_number(words, hours % 12, 0);
+      copy_word(second, line_size, teen);
     }
+    return;
+  }
 
-    remaining -= append_string(words, remaining, " ");
-    remaining -= append_number(words, minutes, 1);
-    remaining -= append_string(words, remaining, " ");
-}
-
-void time_to_3words(int hours, int minutes, char *line1, char *line2, char *line3, size_t length)
-{
-    char value[length];
-    time_to_words(hours, minutes, value, length);
-
-    memset(line1, 0, length);
-    memset(line2, 0, length);
-    memset(line3, 0, length);
-
-    char *start = value;
-    char *pch = strstr (start, " ");
-    while (pch != NULL) {
-        if (line1[0] == 0) {
-            memcpy(line1, start, pch-start);
-        }  else if (line2[0] == 0) {
-            memcpy(line2, start, pch-start);
-        } else if (line3[0] == 0) {
-            memcpy(line3, start, pch-start);
-        }
-        start += pch-start+1;
-        pch = strstr(start, " ");
-    }
-
-    // Truncate long teen values, except thirteen
-    if (strlen(line2) > 7 && minutes != 13) {
-        char *pch = strstr(line2, "teen");
-        if (pch) {
-            memcpy(line3, pch, 4);
-            pch[0] = 0;
-        }
-    }
-
-    #if INCLUDE_O
-    if(minutes > 0 && minutes < 10) {
-        char new_line2[8] = "o'";
-        strcat(new_line2, line2);
-        memcpy(line2, new_line2, strlen(new_line2)+1);
-    }
-    #endif
-
+  copy_word(second, line_size, TENS[minutes / 10]);
+  if (minutes % 10 != 0) {
+    copy_word(third, line_size, ONES[minutes % 10]);
+  }
 }

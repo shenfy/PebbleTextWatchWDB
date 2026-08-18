@@ -1,0 +1,62 @@
+{
+  "name": "pebble-text-watch-wdb-modern",
+  "author": "Fangyang Shen",
+  "contributors": [
+    "Justin Carvalho (original project)"
+  ],
+  "description": "A modern word-based Pebble watchface with weather, date, and battery status.",
+  "version": "2.0.0",
+  "keywords": [
+    "pebble-watchface"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shenfy/PebbleTextWatchWDB.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shenfy/PebbleTextWatchWDB/issues"
+  },
+  "homepage": "https://github.com/shenfy/PebbleTextWatchWDB#readme",
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.0.10"
+  },
+  "pebble": {
+    "displayName": "Text Watch WDB Modern",
+    "uuid": "3f25c33f-30ee-4a2c-bdaf-4184bb484811",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "diorite",
+      "emery",
+      "flint"
+    ],
+    "capabilities": [
+      "configurable",
+      "location"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "KEY_TEMPERATURE",
+      "KEY_LOW",
+      "KEY_HIGH",
+      "KEY_CONDITIONS",
+      "KEY_THEME",
+      "KEY_REQUEST_WEATHER"
+    ],
+    "resources": {
+      "media": [
+        {
+          "menuIcon": true,
+          "type": "png",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png"
+        }
+      ]
+    }
+  }
+}
